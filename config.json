@@ -1,0 +1,9 @@
+{
+  "juntar_boletos": true,
+  "salvar_outros": true,
+  "limpar_cnpj_nome": true,
+  "pasta_saida_padrao": "",
+  "formato_nome_nota": "NF {nf} - {nome}",
+  "url_servidor_atualizacao": "",
+  "verificar_atualizacoes_auto": false
+}

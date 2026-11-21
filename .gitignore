@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# PyInstaller / Build
+build/
+dist/
+*.spec
+
+# Testes e saídas de processamento
+saida_*/
+*.zip
+*.log
+*.tmp
+*.vbs
+
+# Executáveis compilados locais
+*.exe
