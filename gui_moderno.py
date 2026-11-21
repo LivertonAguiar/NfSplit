@@ -1028,76 +1028,70 @@ class AppSeparador(ctk.CTk):
         )
 
         # --------------------------------------------------------------------
-        # 5. Tabela de Resultados
+        # 5. Tabela de Resultados Moderna
         # --------------------------------------------------------------------
-        table_card = ctk.CTkFrame(
+        self.table_card = ctk.CTkFrame(
             content, fg_color="#FFFFFF", corner_radius=16,
             border_width=1, border_color="#E2E8F0"
         )
-        table_card.pack(fill="both", expand=True)
+        self.table_card.pack(fill="both", expand=True)
 
-        table_inner = ttk.Frame(table_card)
-        table_inner.pack(fill="both", expand=True, padx=12, pady=12)
+        top_table = ctk.CTkFrame(self.table_card, fg_color="transparent", height=36)
+        top_table.pack(fill="x", padx=16, pady=(12, 6))
 
-        style = ttk.Style(self)
-        try:
-            style.theme_use("clam")
-        except Exception:
-            pass
-
-        style.configure(
-            "Modern.Treeview",
-            background="#FFFFFF",
-            foreground="#0F172A",
-            fieldbackground="#FFFFFF",
-            rowheight=30,
-            font=("Segoe UI", 9),
-            borderwidth=0
+        lbl_table_tit = ctk.CTkLabel(
+            top_table, text="📋  Documentos Processados",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color="#0F172A"
         )
-        style.configure(
-            "Modern.Treeview.Heading",
-            background="#F1F5F9",
-            foreground="#334155",
-            font=("Segoe UI", 9, "bold"),
-            relief="flat",
-            padding=(8, 8)
+        lbl_table_tit.pack(side="left")
+
+        self.lbl_badge_count = ctk.CTkLabel(
+            top_table, text="0 itens",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            fg_color="#F1F5F9", text_color="#475569",
+            corner_radius=8, padx=10, pady=3
         )
-        style.map(
-            "Modern.Treeview",
-            background=[("selected", "#E0E7FF")],
-            foreground=[("selected", "#1E1B4B")]
+        self.lbl_badge_count.pack(side="right")
+
+        self.colunas_tabela = [
+            ("Tipo", 100, "center"),
+            ("Nº NF", 80, "center"),
+            ("Destinatário / Pagador", 0, "w"),
+            ("CNPJ / CPF", 145, "center"),
+            ("Valor Total", 115, "e"),
+            ("Forma Pgto", 100, "center"),
+            ("Pág.", 60, "center"),
+            ("Ação", 65, "center")
+        ]
+
+        self.header_frame = ctk.CTkFrame(
+            self.table_card, fg_color="#F8FAFC", corner_radius=8,
+            height=36, border_width=1, border_color="#E2E8F0"
         )
+        self.header_frame.pack(fill="x", padx=(16, 28), pady=(0, 4))
+        self.header_frame.pack_propagate(False)
 
-        colunas = ("tipo", "nf", "nome", "cnpj", "valor", "pgto", "pags")
-        self.tree = ttk.Treeview(
-            table_inner, columns=colunas, show="headings",
-            style="Modern.Treeview", selectmode="browse"
+        for i, (col_name, col_width, col_anchor) in enumerate(self.colunas_tabela):
+            if col_width == 0:
+                self.header_frame.grid_columnconfigure(i, weight=1)
+            else:
+                self.header_frame.grid_columnconfigure(i, minsize=col_width, weight=0)
+            lbl = ctk.CTkLabel(
+                self.header_frame, text=col_name,
+                font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+                text_color="#475569"
+            )
+            sticky = "ew" if col_width == 0 else ("w" if col_anchor == "w" else ("e" if col_anchor == "e" else ""))
+            lbl.grid(row=0, column=i, sticky=sticky, padx=8, pady=6)
+
+        self.scroll_tabela = ctk.CTkScrollableFrame(
+            self.table_card, fg_color="#FFFFFF", corner_radius=10,
+            scrollbar_button_color="#CBD5E1", scrollbar_button_hover_color="#94A3B8"
         )
+        self.scroll_tabela.pack(fill="both", expand=True, padx=16, pady=(0, 12))
 
-        self.tree.heading("tipo", text="Tipo")
-        self.tree.heading("nf", text="Nº NF")
-        self.tree.heading("nome", text="Destinatário / Pagador")
-        self.tree.heading("cnpj", text="CNPJ / CPF")
-        self.tree.heading("valor", text="Valor Total")
-        self.tree.heading("pgto", text="Forma Pgto")
-        self.tree.heading("pags", text="Página(s)")
-
-        self.tree.column("tipo", width=90, anchor="center")
-        self.tree.column("nf", width=80, anchor="center")
-        self.tree.column("nome", width=340, anchor="w")
-        self.tree.column("cnpj", width=145, anchor="center")
-        self.tree.column("valor", width=110, anchor="e")
-        self.tree.column("pgto", width=95, anchor="center")
-        self.tree.column("pags", width=75, anchor="center")
-
-        self.tree.tag_configure("par", background="#FFFFFF")
-        self.tree.tag_configure("impar", background="#F8FAFC")
-
-        scroll = ttk.Scrollbar(table_inner, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
-
-        self.tree.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+        self._mostrar_empty_state()
 
     # ------------------------------------------------------------------------
     # Métodos e Ações de Arraste e Solte
@@ -1217,17 +1211,184 @@ class AppSeparador(ctk.CTk):
         self.btn_iniciar.configure(state="disabled")
         self.btn_abrir_pasta.configure(state="disabled")
         self.lbl_status.configure(text=f"Processando {len(arquivos)} arquivo(s)... Aguarde.")
-        self.progress_bar.pack(fill="x", pady=(0, 8), before=self.tree.master.master)
+        self.progress_bar.pack(fill="x", pady=(0, 8), before=self.table_card)
         self.progress_bar.start()
 
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        self._limpar_tabela()
 
         threading.Thread(
             target=self._executar_worker,
             args=(arquivos, Path(saida_str)),
             daemon=True
         ).start()
+
+    def _mostrar_empty_state(self):
+        self._limpar_tabela()
+        empty_box = ctk.CTkFrame(self.scroll_tabela, fg_color="transparent")
+        empty_box.pack(fill="both", expand=True, pady=45)
+
+        lbl_icon = ctk.CTkLabel(
+            empty_box, text="📄✨",
+            font=ctk.CTkFont(size=36), text_color="#6366F1"
+        )
+        lbl_icon.pack(pady=(0, 6))
+
+        lbl_tit = ctk.CTkLabel(
+            empty_box, text="Nenhum documento processado ainda",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color="#1E1B4B"
+        )
+        lbl_tit.pack(pady=(0, 4))
+
+        lbl_sub = ctk.CTkLabel(
+            empty_box,
+            text="Arraste o arquivo PDF da carga para a caixa acima ou selecione-o e clique em\n'PROCESSAR E SEPARAR ARQUIVOS' para visualizar notas e boletos classificados.",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color="#64748B", justify="center"
+        )
+        lbl_sub.pack()
+
+    def _limpar_tabela(self):
+        for w in self.scroll_tabela.winfo_children():
+            w.destroy()
+        self.lbl_badge_count.configure(text="0 itens")
+
+    def _adicionar_linha_tabela(self, item: dict, indice: int, saida: Path):
+        bg_base = "#FFFFFF" if indice % 2 == 0 else "#F8FAFC"
+        row = ctk.CTkFrame(
+            self.scroll_tabela, fg_color=bg_base, corner_radius=8,
+            height=38, border_width=1, border_color="#F1F5F9"
+        )
+        row.pack(fill="x", pady=2)
+        row.pack_propagate(False)
+
+        for i, (col_name, col_width, col_anchor) in enumerate(self.colunas_tabela):
+            if col_width == 0:
+                row.grid_columnconfigure(i, weight=1)
+            else:
+                row.grid_columnconfigure(i, minsize=col_width, weight=0)
+
+        # 1. Badge de Tipo
+        tipo = (item.get("tipo") or "").lower()
+        if "nota" in tipo:
+            badge_txt = "📄 DANFE"
+            b_fg = "#EEF2FF"
+            b_tc = "#4338CA"
+        elif "boleto" in tipo:
+            badge_txt = "💳 BOLETO"
+            b_fg = "#ECFDF5"
+            b_tc = "#047857"
+        elif "mapa" in tipo:
+            badge_txt = "🗺 MAPA"
+            b_fg = "#FFFBEB"
+            b_tc = "#B45309"
+        elif "acerto" in tipo:
+            badge_txt = "📋 ACERTO"
+            b_fg = "#FEF3C7"
+            b_tc = "#92400E"
+        else:
+            badge_txt = f"⚠ {tipo.upper()}"
+            b_fg = "#FEF2F2"
+            b_tc = "#B91C1C"
+
+        badge = ctk.CTkLabel(
+            row, text=badge_txt,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            fg_color=b_fg, text_color=b_tc, corner_radius=6, padx=8, pady=3
+        )
+        badge.grid(row=0, column=0, padx=6, pady=4)
+
+        # 2. Nº NF
+        nf_txt = str(item.get("nf") or "-")
+        lbl_nf = ctk.CTkLabel(
+            row, text=nf_txt,
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color="#0F172A"
+        )
+        lbl_nf.grid(row=0, column=1, padx=6, pady=4)
+
+        # 3. Nome
+        nome_txt = str(item.get("nome") or "-")
+        lbl_nome = ctk.CTkLabel(
+            row, text=nome_txt,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color="#1E293B", anchor="w"
+        )
+        lbl_nome.grid(row=0, column=2, sticky="w", padx=8, pady=4)
+
+        # 4. CNPJ / CPF
+        cnpj_txt = str(item.get("cnpj_cpf") or "-")
+        lbl_cnpj = ctk.CTkLabel(
+            row, text=cnpj_txt,
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color="#64748B"
+        )
+        lbl_cnpj.grid(row=0, column=3, padx=6, pady=4)
+
+        # 5. Valor Total
+        val = item.get("valor_nf") or item.get("valor_boleto") or "-"
+        val_txt = f"R$ {val}" if val != "-" else "-"
+        lbl_val = ctk.CTkLabel(
+            row, text=val_txt,
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color="#059669" if val != "-" else "#94A3B8", anchor="e"
+        )
+        lbl_val.grid(row=0, column=4, sticky="e", padx=8, pady=4)
+
+        # 6. Forma Pgto
+        pgto_txt = str(item.get("forma_pgto") or "-")
+        lbl_pgto = ctk.CTkLabel(
+            row, text=pgto_txt,
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color="#475569"
+        )
+        lbl_pgto.grid(row=0, column=5, padx=6, pady=4)
+
+        # 7. Páginas
+        pags_txt = str(item.get("paginas") or "-")
+        lbl_pags = ctk.CTkLabel(
+            row, text=pags_txt,
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color="#64748B"
+        )
+        lbl_pags.grid(row=0, column=6, padx=6, pady=4)
+
+        # Ação Abrir Arquivo
+        arq_rel = item.get("arquivo")
+        def _abrir_doc(e=None):
+            if arq_rel:
+                arq_completo = saida / arq_rel
+                if arq_completo.exists():
+                    if sys.platform == "win32":
+                        os.startfile(arq_completo)
+                    else:
+                        subprocess.run(["xdg-open", str(arq_completo)])
+                    return
+            if saida.exists():
+                if sys.platform == "win32":
+                    os.startfile(saida)
+                else:
+                    subprocess.run(["xdg-open", str(saida)])
+
+        # 8. Botão Abrir
+        btn_acao = ctk.CTkButton(
+            row, text="Abrir ↗", width=54, height=24,
+            corner_radius=6, fg_color="#F1F5F9", hover_color="#E0E7FF",
+            text_color="#4F46E5", font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            command=_abrir_doc
+        )
+        btn_acao.grid(row=0, column=7, padx=6, pady=4)
+
+        # Hover e Duplo Clique
+        def _on_enter(e):
+            row.configure(fg_color="#EEF2FF", border_color="#C7D2FE")
+        def _on_leave(e):
+            row.configure(fg_color=bg_base, border_color="#F1F5F9")
+
+        for widget in (row, lbl_nf, lbl_nome, lbl_cnpj, lbl_val, lbl_pgto, lbl_pags):
+            widget.bind("<Enter>", _on_enter)
+            widget.bind("<Leave>", _on_leave)
+            widget.bind("<Double-Button-1>", _abrir_doc)
 
     def _executar_worker(self, arquivos: list[Path], saida: Path):
         t0 = time.time()
@@ -1278,22 +1439,11 @@ class AppSeparador(ctk.CTk):
             text=f"✅ Concluído em {tempo_str}! {totais['notas']} NFs | {totais['boletos']} Boleto(s)."
         )
 
-        for i, item in enumerate(relatorio):
-            tipo_txt = item["tipo"].upper()
-            val = item.get("valor_nf") or item.get("valor_boleto") or "-"
-            if val != "-":
-                val = f"R$ {val}"
+        self._limpar_tabela()
+        self.lbl_badge_count.configure(text=f"{len(relatorio)} documentos")
 
-            tag = "impar" if i % 2 == 1 else "par"
-            self.tree.insert("", "end", values=(
-                tipo_txt,
-                item.get("nf") or "-",
-                item.get("nome") or "-",
-                item.get("cnpj_cpf") or "-",
-                val,
-                item.get("forma_pgto") or "-",
-                item.get("paginas") or "-"
-            ), tags=(tag,))
+        for i, item in enumerate(relatorio):
+            self._adicionar_linha_tabela(item, i, saida)
 
         resumo_det = (
             f"⏱ Tempo: {tempo_str}\n"
