@@ -3,7 +3,7 @@
 gui_moderno.py - NfSplit v1.0.0
 Aplicativo Desktop Nativo, 100% Local, Sem Servidor HTTP.
 Interface desenvolvida com CustomTkinter, caixas de diálogo integradas,
-gestão de pastas persistente e suporte a atualizações OTA.
+gestão de pastas persistente, suporte a Arraste e Solte (Drag & Drop) e OTA.
 """
 
 import csv
@@ -19,6 +19,13 @@ from typing import Optional
 import customtkinter as ctk
 from tkinter import filedialog, ttk
 from PIL import Image
+
+# Suporte a Arraste e Solte (Drag & Drop) nativo do Windows
+try:
+    import windnd
+    TEM_WINDND = True
+except Exception:
+    TEM_WINDND = False
 
 # Importações do projeto
 from separar_notas import processar_pdf
@@ -44,7 +51,7 @@ ICONE_ICO = PASTA_INTERNA / "app_icon.ico"
 if not ICONE_ICO.exists():
     ICONE_ICO = PASTA_BASE / "app_icon.ico"
 
-# Configuração Padrão inicial (pasta_saida limpa por padrão para primeira solicitação)
+# Configuração Padrão inicial
 CONFIG_PADRAO = {
     "juntar_boletos": True,
     "salvar_outros": True,
@@ -114,7 +121,6 @@ class DialogoModerno(ctk.CTkToplevel):
 
         self.configure(fg_color="#F8FAFC")
 
-        # Configuração de Cores por tipo
         paletas = {
             "sucesso": {"bg_icon": "#059669", "icon": "✔", "titulo": "#065F46"},
             "aviso": {"bg_icon": "#D97706", "icon": "⚠", "titulo": "#92400E"},
@@ -152,7 +158,6 @@ class DialogoModerno(ctk.CTkToplevel):
         )
         card.pack(fill="both", expand=True, padx=16, pady=16)
 
-        # Header com Ícone Suave
         top = ctk.CTkFrame(card, fg_color="transparent")
         top.pack(fill="x", padx=20, pady=(18, 10))
 
@@ -171,7 +176,6 @@ class DialogoModerno(ctk.CTkToplevel):
         )
         lbl_tit.pack(side="left", padx=14, fill="x", expand=True)
 
-        # Corpo da Mensagem
         lbl_msg = ctk.CTkLabel(
             card, text=self.mensagem_txt,
             font=ctk.CTkFont(family="Segoe UI", size=12),
@@ -179,7 +183,6 @@ class DialogoModerno(ctk.CTkToplevel):
         )
         lbl_msg.pack(fill="x", padx=22, pady=(4, 8))
 
-        # Detalhes opcionais
         if self.detalhes_txt:
             box_det = ctk.CTkFrame(card, fg_color="#F8FAFC", corner_radius=10, border_width=1, border_color="#E2E8F0")
             box_det.pack(fill="both", expand=True, padx=20, pady=(0, 10))
@@ -190,7 +193,6 @@ class DialogoModerno(ctk.CTkToplevel):
             )
             lbl_det.pack(fill="both", expand=True)
 
-        # Rodapé de Ações
         footer = ctk.CTkFrame(card, fg_color="transparent")
         footer.pack(fill="x", side="bottom", padx=20, pady=(0, 16))
 
@@ -245,7 +247,6 @@ class DialogoModerno(ctk.CTkToplevel):
         self.destroy()
 
 
-# Helpers para exibição direta
 def mostrar_aviso(parent, titulo: str, mensagem: str):
     dlg = DialogoModerno(parent, titulo, mensagem, tipo="aviso")
     parent.wait_window(dlg)
@@ -272,8 +273,6 @@ def mostrar_confirmacao(parent, titulo: str, mensagem: str) -> bool:
 # ----------------------------------------------------------------------------
 
 class DialogoPrimeiraPasta(ctk.CTkToplevel):
-    """Solicita ao usuário a pasta onde deseja salvar os arquivos com salvamento persistente."""
-
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
@@ -301,7 +300,6 @@ class DialogoPrimeiraPasta(ctk.CTkToplevel):
         )
         card.pack(fill="both", expand=True, padx=16, pady=16)
 
-        # Header
         top = ctk.CTkFrame(card, fg_color="transparent")
         top.pack(fill="x", padx=20, pady=(18, 10))
 
@@ -327,7 +325,6 @@ class DialogoPrimeiraPasta(ctk.CTkToplevel):
         )
         lbl_desc.pack(fill="x", padx=20, pady=(4, 12))
 
-        # Campo de Caminho
         row = ctk.CTkFrame(card, fg_color="transparent")
         row.pack(fill="x", padx=20, pady=(0, 16))
 
@@ -348,7 +345,6 @@ class DialogoPrimeiraPasta(ctk.CTkToplevel):
         )
         btn_proc.pack(side="left")
 
-        # Rodapé
         footer = ctk.CTkFrame(card, fg_color="transparent")
         footer.pack(fill="x", side="bottom", padx=20, pady=(0, 16))
 
@@ -429,7 +425,7 @@ class JanelaSobre(ctk.CTkToplevel):
         body = ctk.CTkFrame(self, fg_color="#F8FAFC", corner_radius=0)
         body.pack(fill="both", expand=True, padx=20, pady=16)
 
-        # Card O que há de novo na v1.0.0
+        # Card Novidades
         card_nov = ctk.CTkFrame(body, fg_color="#FFFFFF", corner_radius=14, border_width=1, border_color="#E2E8F0")
         card_nov.pack(fill="x", pady=(0, 12), padx=2, ipady=4)
 
@@ -441,6 +437,7 @@ class JanelaSobre(ctk.CTkToplevel):
         lbl_nov_tit.pack(anchor="w", padx=16, pady=(10, 6))
 
         novidades = (
+            "• Suporte completo a Arraste e Solte (Drag & Drop) de arquivos PDF.\n"
             "• Executável nativo único (.exe) autônomo, 100% local e sem servidor.\n"
             "• Caixas de diálogo nativas personalizadas integradas à interface.\n"
             "• Solicitação e gravação persistente da pasta de destino na primeira execução.\n"
@@ -455,7 +452,7 @@ class JanelaSobre(ctk.CTkToplevel):
         )
         lbl_nov_txt.pack(anchor="w", padx=16, pady=(0, 10))
 
-        # Card Sistema de Atualização OTA (Inativo por padrão)
+        # Card OTA
         card_ota = ctk.CTkFrame(body, fg_color="#FFFFFF", corner_radius=14, border_width=1, border_color="#E2E8F0")
         card_ota.pack(fill="x", pady=(0, 14), padx=2, ipady=6)
 
@@ -497,7 +494,6 @@ class JanelaSobre(ctk.CTkToplevel):
         )
         btn_verificar.pack(anchor="w", padx=16, pady=(0, 10))
 
-        # Botão Fechar
         footer = ctk.CTkFrame(body, fg_color="transparent")
         footer.pack(fill="x", side="bottom")
 
@@ -723,8 +719,8 @@ class AppSeparador(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("NfSplit • Separador de Notas & Boletos")
-        self.geometry("1060x750")
-        self.minsize(940, 650)
+        self.geometry("1060x780")
+        self.minsize(940, 680)
 
         if ICONE_ICO.exists():
             try:
@@ -736,6 +732,13 @@ class AppSeparador(ctk.CTk):
         self.configure(fg_color="#F8FAFC")
 
         self._construir_interface()
+
+        # Ativa o suporte a Arraste e Solte (Drag & Drop) nativo
+        if TEM_WINDND:
+            try:
+                windnd.hook_dropfiles(self, func=self._on_arquivos_soltos)
+            except Exception:
+                pass
 
     def _construir_interface(self):
         # --------------------------------------------------------------------
@@ -800,7 +803,7 @@ class AppSeparador(ctk.CTk):
         content.pack(fill="both", expand=True, padx=24, pady=16)
 
         # --------------------------------------------------------------------
-        # 2. Card de Arquivos
+        # 2. Card de Arquivos com Zona de Arraste e Solte (Dropzone)
         # --------------------------------------------------------------------
         card_sel = ctk.CTkFrame(
             content, fg_color="#FFFFFF", corner_radius=16,
@@ -810,6 +813,37 @@ class AppSeparador(ctk.CTk):
 
         pad_sel = ctk.CTkFrame(card_sel, fg_color="transparent")
         pad_sel.pack(fill="x", padx=20, pady=14)
+
+        # Zona Visual de Arraste e Solte (Drag & Drop)
+        self.drop_zone = ctk.CTkFrame(
+            pad_sel, fg_color="#F8FAFC", corner_radius=12,
+            border_width=2, border_color="#C7D2FE", cursor="hand2"
+        )
+        self.drop_zone.pack(fill="x", pady=(0, 12), ipady=6)
+        self.drop_zone.bind("<Button-1>", lambda e: self._selecionar_pdf())
+
+        self.lbl_drop_icon = ctk.CTkLabel(
+            self.drop_zone, text="📥",
+            font=ctk.CTkFont(size=24), text_color="#4F46E5"
+        )
+        self.lbl_drop_icon.pack(pady=(6, 2))
+        self.lbl_drop_icon.bind("<Button-1>", lambda e: self._selecionar_pdf())
+
+        self.lbl_drop_title = ctk.CTkLabel(
+            self.drop_zone, text="Arraste e solte o arquivo PDF da carga aqui",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color="#1E1B4B"
+        )
+        self.lbl_drop_title.pack(pady=(0, 2))
+        self.lbl_drop_title.bind("<Button-1>", lambda e: self._selecionar_pdf())
+
+        self.lbl_drop_sub = ctk.CTkLabel(
+            self.drop_zone, text="ou utilize os botões abaixo para selecionar o arquivo / pasta",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color="#64748B"
+        )
+        self.lbl_drop_sub.pack(pady=(0, 6))
+        self.lbl_drop_sub.bind("<Button-1>", lambda e: self._selecionar_pdf())
 
         # Linha Entrada
         row_in = ctk.CTkFrame(pad_sel, fg_color="transparent")
@@ -826,7 +860,7 @@ class AppSeparador(ctk.CTk):
         self.entry_entrada = ctk.CTkEntry(
             row_in, textvariable=self.var_entrada, corner_radius=10,
             border_color="#CBD5E1", fg_color="#F8FAFC", text_color="#0F172A",
-            placeholder_text="Selecione um arquivo PDF ou pasta para processar...",
+            placeholder_text="Arraste o PDF acima ou clique em Selecionar PDF...",
             font=ctk.CTkFont(family="Segoe UI", size=12)
         )
         self.entry_entrada.pack(side="left", fill="x", expand=True, padx=(0, 10))
@@ -1042,6 +1076,44 @@ class AppSeparador(ctk.CTk):
         scroll.pack(side="right", fill="y")
 
     # ------------------------------------------------------------------------
+    # Métodos e Ações de Arraste e Solte
+    # ------------------------------------------------------------------------
+
+    def _on_arquivos_soltos(self, arquivos):
+        """Manipula os arquivos arrastados e soltos sobre a janela do aplicativo."""
+        if not arquivos:
+            return
+
+        caminho = arquivos[0]
+        if isinstance(caminho, bytes):
+            try:
+                caminho = caminho.decode("mbcs")
+            except Exception:
+                caminho = caminho.decode("utf-8", errors="replace")
+
+        p = Path(caminho)
+        if p.is_dir() or p.suffix.lower() == ".pdf":
+            self.var_entrada.set(str(p.resolve()))
+            self._atualizar_visual_dropzone(p)
+            self.lbl_status.configure(text=f"Carregado via Arraste: {p.name}")
+        else:
+            mostrar_aviso(
+                self,
+                "Formato Não Suportado",
+                f"O arquivo solto ({p.name}) não é um PDF válido.\nPor favor, arraste um arquivo com extensão .pdf ou uma pasta."
+            )
+
+    def _atualizar_visual_dropzone(self, p: Path):
+        """Atualiza a caixa visual de arraste com informações do arquivo carregado."""
+        self.drop_zone.configure(fg_color="#F0FDF4", border_color="#86EFAC")
+        self.lbl_drop_icon.configure(text="✔", text_color="#059669")
+        self.lbl_drop_title.configure(text=f"Arquivo Carregado: {p.name}", text_color="#065F46")
+        self.lbl_drop_sub.configure(
+            text="Pronto para processar! Clique em PROCESSAR E SEPARAR ou arraste outro para trocar.",
+            text_color="#047857"
+        )
+
+    # ------------------------------------------------------------------------
     # Métodos e Ações
     # ------------------------------------------------------------------------
 
@@ -1057,12 +1129,16 @@ class AppSeparador(ctk.CTk):
             filetypes=[("Arquivos PDF", "*.pdf"), ("Todos os Arquivos", "*.*")]
         )
         if caminho:
-            self.var_entrada.set(caminho)
+            p = Path(caminho)
+            self.var_entrada.set(str(p.resolve()))
+            self._atualizar_visual_dropzone(p)
 
     def _selecionar_pasta_origem(self):
         caminho = filedialog.askdirectory(title="Selecione a pasta com vários PDFs")
         if caminho:
-            self.var_entrada.set(caminho)
+            p = Path(caminho)
+            self.var_entrada.set(str(p.resolve()))
+            self._atualizar_visual_dropzone(p)
 
     def _selecionar_pasta_saida(self):
         caminho = filedialog.askdirectory(title="Selecione a pasta de saída")
@@ -1085,7 +1161,7 @@ class AppSeparador(ctk.CTk):
 
         # 1. Validação de Entrada
         if not entrada_str:
-            mostrar_aviso(self, "Atenção", "Por favor, selecione um arquivo PDF ou pasta de entrada primeiro.")
+            mostrar_aviso(self, "Atenção", "Por favor, arraste ou selecione um arquivo PDF / pasta de entrada primeiro.")
             return
 
         p_ent = Path(entrada_str)
@@ -1214,5 +1290,7 @@ class AppSeparador(ctk.CTk):
 if __name__ == "__main__":
     app = AppSeparador()
     if len(sys.argv) > 1 and Path(sys.argv[1]).exists():
-        app.var_entrada.set(str(Path(sys.argv[1]).resolve()))
+        p = Path(sys.argv[1]).resolve()
+        app.var_entrada.set(str(p))
+        app._atualizar_visual_dropzone(p)
     app.mainloop()
