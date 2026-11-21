@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
-VERSAO_ATUAL = "1.0.0"
+VERSAO_ATUAL = "1.1.0"
 REPOSITORIO_PADRAO = "LivertonAguiar/NfSplit"
 
 

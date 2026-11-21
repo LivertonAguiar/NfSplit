@@ -684,20 +684,20 @@ class JanelaSobre(ctk.CTkToplevel):
         card_nov.pack(fill="x", pady=(0, 12), padx=2, ipady=4)
 
         lbl_nov_tit = ctk.CTkLabel(
-            card_nov, text="📋 Novidades da Versão 1.0.0",
+            card_nov, text=f"📋 Novidades da Versão {VERSAO_ATUAL}",
             font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
             text_color="#0F172A"
         )
         lbl_nov_tit.pack(anchor="w", padx=16, pady=(10, 6))
 
         novidades = (
-            "• Suporte completo a Arraste e Solte (Drag & Drop) de arquivos PDF.\n"
-            "• Executável nativo único (.exe) autônomo, 100% local e sem servidor.\n"
-            "• Caixas de diálogo nativas personalizadas integradas à interface.\n"
-            "• Solicitação e gravação persistente da pasta de destino na primeira execução.\n"
-            "• Extração de DANFEs por Chave de Acesso (44 dígitos) e agregação multi-página.\n"
-            "• Leitor universal de boletos FEBRABAN com valores em centavos e vencimentos.\n"
-            "• Geração de relatório de faturamento compatível com Microsoft Excel (CSV UTF-8 BOM)."
+            "• Identificação do aplicativo estampada com a versão oficial (NfSplit v1.1.0).\n"
+            "• Sistema de Atualização OTA automático semanal integrado ao GitHub Releases.\n"
+            "• Tabela de resultados moderna com rolagem suave, badges e botões de ação.\n"
+            "• Estado vazio ilustrado (Empty State) amigável quando sem dados.\n"
+            "• Suporte nativo a Arraste e Solte (Drag & Drop) de arquivos PDF.\n"
+            "• Abertura do explorador ao clicar diretamente nos campos de texto.\n"
+            "• Caixas de diálogo e modais 100% nativos e integrados ao visual do app."
         )
         lbl_nov_txt = ctk.CTkLabel(
             card_nov, text=novidades,
@@ -1021,7 +1021,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
 class AppSeparador(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("NfSplit • Separador de Notas & Boletos")
+        self.title(f"NfSplit v{VERSAO_ATUAL} • Separador de Notas & Boletos")
         self.geometry("1060x780")
         self.minsize(940, 680)
 
@@ -1061,14 +1061,14 @@ class AppSeparador(ctk.CTk):
         lbl_box.pack(side="left", pady=12)
 
         lbl_titulo = ctk.CTkLabel(
-            lbl_box, text="📄  NfSplit",
+            lbl_box, text=f"📄  NfSplit v{VERSAO_ATUAL}",
             font=ctk.CTkFont(family="Segoe UI", size=17, weight="bold"),
             text_color="#FFFFFF"
         )
         lbl_titulo.pack(anchor="w")
 
         lbl_sub = ctk.CTkLabel(
-            lbl_box, text=f"v{VERSAO_ATUAL} • Classificação de DANFEs e Boletos • 100% Offline • Sem Servidor",
+            lbl_box, text="Classificação de DANFEs e Boletos • 100% Offline • Sem Servidor",
             font=ctk.CTkFont(family="Segoe UI", size=11),
             text_color="#C7D2FE"
         )

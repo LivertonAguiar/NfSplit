@@ -5,6 +5,30 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 
 ---
 
+## [1.1.0] - 2026-11-21
+
+### 🚀 Atualização de Funcionalidades & Identidade Visual
+
+#### Adicionado
+* **Identificação Oficial com Versão no Nome**:
+  * Título da janela principal atualizado para exibir explicitamente o nome e a versão: `NfSplit v1.1.0 • Separador de Notas & Boletos`.
+  * Cabeçalho e telas de diálogo com carimbo visual permanente da versão ativa (`NfSplit v1.1.0`).
+* **Sistema de Atualizações Automáticas OTA via GitHub Releases**:
+  * Integração nativa à API oficial do repositório [`LivertonAguiar/NfSplit`](https://github.com/LivertonAguiar/NfSplit).
+  * Rotina silenciosa de verificação automática semanal e botão de consulta manual imediata em "Sobre & OTA".
+  * Caixa de diálogo de aprovação (`DialogoNovaVersao`) exibindo comparativo de versões, notas de atualização e tamanho do download.
+  * Modal com barra de progresso em tempo real (`DialogoProgressoDownload`) exibindo velocidade, MBs baixados e porcentagem.
+  * Substituição atômica automática do executável via processo em lote desanexado, com reinício instantâneo na nova versão e preservação 100% de `config.json`.
+* **Redesign da Tabela de Resultados**:
+  * Substituição da árvore clássica legada por `CTkScrollableFrame` nativo com barras de rolagem arredondadas e suaves.
+  * Estado vazio ilustrado (*Empty State*) amigável e explicativo (`📄✨`).
+  * Linhas em cartões com badges coloridos por tipo (`[DANFE]`, `[BOLETO]`, `[MAPA]`, `[ACERTO]`), efeito hover e botão direto "Abrir ↗".
+* **Interatividade com Arraste e Solte & Explorer**:
+  * Suporte nativo a Arraste e Solte (*Drag & Drop*) de PDFs diretamente sobre a janela.
+  * Abertura do Windows Explorer ao clicar diretamente nas caixas de texto de entrada e saída.
+
+---
+
 ## [1.0.0] - 2026-11-21
 
 ### ✨ Lançamento Oficial da Versão 1.0

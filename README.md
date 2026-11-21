@@ -1,7 +1,7 @@
 # NfSplit 📄💳
 
 > **Separador Inteligente de Notas Fiscais (DANFEs), Boletos Bancários e Documentos de Carga**  
-> *Versão 1.0.0 • 100% Offline • Sem Servidor • Executável Nativo (.exe) para Windows*
+> *Versão 1.1.0 • 100% Offline • Sem Servidor • Executável Nativo (.exe) para Windows*
 
 ---
 
