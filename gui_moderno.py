@@ -13,6 +13,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -29,7 +30,12 @@ except Exception:
 
 # Importações do projeto
 from separar_notas import processar_pdf
-from updater import AtualizadorOTA, VERSAO_ATUAL
+from updater import (
+    AtualizadorOTA,
+    VERSAO_ATUAL,
+    REPOSITORIO_PADRAO,
+    deve_verificar_atualizacao
+)
 
 # Configurações de diretório para execução direta e PyInstaller
 if getattr(sys, "frozen", False):
@@ -59,7 +65,9 @@ CONFIG_PADRAO = {
     "pasta_saida_padrao": "",
     "formato_nome_nota": "NF {nf} - {nome}",
     "url_servidor_atualizacao": "",
-    "verificar_atualizacoes_auto": False,
+    "verificar_atualizacoes_auto": True,
+    "repositorio_github": REPOSITORIO_PADRAO,
+    "ultima_verificacao_atualizacao": "",
 }
 
 
@@ -383,6 +391,246 @@ class DialogoPrimeiraPasta(ctk.CTkToplevel):
 
 
 # ----------------------------------------------------------------------------
+# Janelas Modais: Notificação de Nova Versão e Progresso de Download OTA
+# ----------------------------------------------------------------------------
+
+class DialogoNovaVersao(ctk.CTkToplevel):
+    def __init__(self, parent, info_versao: dict):
+        super().__init__(parent)
+        self.parent = parent
+        self.info = info_versao
+        self.title("🚀 Atualização Disponível • NfSplit")
+        self.geometry("540x540")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        if ICONE_ICO.exists():
+            try:
+                self.iconbitmap(str(ICONE_ICO))
+            except Exception:
+                pass
+
+        self.configure(fg_color="#F8FAFC")
+        self._construir_ui()
+
+    def _construir_ui(self):
+        header = ctk.CTkFrame(self, fg_color="#1E1B4B", corner_radius=0, height=68)
+        header.pack(fill="x", side="top")
+        header.pack_propagate(False)
+
+        top_inner = ctk.CTkFrame(header, fg_color="transparent")
+        top_inner.pack(fill="both", expand=True, padx=20)
+
+        lbl_tit = ctk.CTkLabel(
+            top_inner, text="🚀  Nova Versão Disponível!",
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
+            text_color="#FFFFFF"
+        )
+        lbl_tit.pack(side="left", pady=12)
+
+        badge_nova = ctk.CTkLabel(
+            top_inner, text=f"Versão {self.info.get('tag', '')}",
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            fg_color="#059669", text_color="#FFFFFF", corner_radius=8, padx=8, pady=3
+        )
+        badge_nova.pack(side="right", pady=18)
+
+        body = ctk.CTkFrame(self, fg_color="#F8FAFC", corner_radius=0)
+        body.pack(fill="both", expand=True, padx=20, pady=16)
+
+        card_comp = ctk.CTkFrame(body, fg_color="#FFFFFF", corner_radius=12, border_width=1, border_color="#E2E8F0")
+        card_comp.pack(fill="x", pady=(0, 12), ipady=4)
+
+        row_comp = ctk.CTkFrame(card_comp, fg_color="transparent")
+        row_comp.pack(fill="x", padx=16, pady=10)
+
+        lbl_inst = ctk.CTkLabel(
+            row_comp, text=f"Versão Instalada: v{VERSAO_ATUAL}",
+            font=ctk.CTkFont(family="Segoe UI", size=11), text_color="#64748B"
+        )
+        lbl_inst.pack(side="left")
+
+        tamanho_mb = self.info.get("tamanho_bytes", 0) / 1024 / 1024
+        tam_str = f" • {tamanho_mb:.1f} MB" if tamanho_mb > 0 else ""
+        lbl_disp = ctk.CTkLabel(
+            row_comp, text=f"Nova no GitHub: {self.info.get('tag', '')}{tam_str}",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"), text_color="#059669"
+        )
+        lbl_disp.pack(side="right")
+
+        lbl_c_tit = ctk.CTkLabel(
+            body, text="📋 Novidades e Melhorias desta Versão:",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color="#0F172A"
+        )
+        lbl_c_tit.pack(anchor="w", pady=(0, 6))
+
+        txt_box = ctk.CTkTextbox(
+            body, height=220, corner_radius=10,
+            border_width=1, border_color="#CBD5E1", fg_color="#FFFFFF",
+            font=ctk.CTkFont(family="Segoe UI", size=11), text_color="#1E293B"
+        )
+        txt_box.pack(fill="x", pady=(0, 10))
+        txt_box.insert("1.0", self.info.get("changelog", "Melhorias de desempenho e correções gerais."))
+        txt_box.configure(state="disabled")
+
+        lbl_aviso = ctk.CTkLabel(
+            body,
+            text="💡 Suas configurações, preferências e pasta padrão serão preservadas automaticamente.",
+            font=ctk.CTkFont(family="Segoe UI", size=10), text_color="#64748B"
+        )
+        lbl_aviso.pack(anchor="w", pady=(0, 12))
+
+        footer = ctk.CTkFrame(body, fg_color="transparent")
+        footer.pack(fill="x", side="bottom")
+
+        btn_atualizar = ctk.CTkButton(
+            footer, text="⚡  Baixar e Atualizar Agora", command=self._iniciar_atualizacao,
+            width=210, height=38, corner_radius=10, fg_color="#059669", hover_color="#047857",
+            text_color="#FFFFFF", font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold")
+        )
+        btn_atualizar.pack(side="left")
+
+        btn_depois = ctk.CTkButton(
+            footer, text="Lembrar Mais Tarde", command=self.destroy,
+            width=140, height=38, corner_radius=10, fg_color="#E2E8F0", hover_color="#CBD5E1",
+            text_color="#1E293B", font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")
+        )
+        btn_depois.pack(side="right")
+
+    def _iniciar_atualizacao(self):
+        self.destroy()
+        DialogoProgressoDownload(self.parent, self.info)
+
+
+class DialogoProgressoDownload(ctk.CTkToplevel):
+    def __init__(self, parent, info_versao: dict):
+        super().__init__(parent)
+        self.parent = parent
+        self.info = info_versao
+        self.title("Baixando Atualização • NfSplit")
+        self.geometry("480x250")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        if ICONE_ICO.exists():
+            try:
+                self.iconbitmap(str(ICONE_ICO))
+            except Exception:
+                pass
+
+        self.configure(fg_color="#F8FAFC")
+        self._construir_ui()
+        self.after(300, self._iniciar_download)
+
+    def _construir_ui(self):
+        header = ctk.CTkFrame(self, fg_color="#1E1B4B", corner_radius=0, height=58)
+        header.pack(fill="x", side="top")
+        header.pack_propagate(False)
+
+        lbl_tit = ctk.CTkLabel(
+            header, text=f"📥  Baixando NfSplit {self.info.get('tag', '')}...",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            text_color="#FFFFFF"
+        )
+        lbl_tit.pack(side="left", padx=20, pady=14)
+
+        body = ctk.CTkFrame(self, fg_color="#F8FAFC", corner_radius=0)
+        body.pack(fill="both", expand=True, padx=24, pady=18)
+
+        self.lbl_detalhe = ctk.CTkLabel(
+            body, text="Conectando aos servidores do GitHub...",
+            font=ctk.CTkFont(family="Segoe UI", size=11), text_color="#475569"
+        )
+        self.lbl_detalhe.pack(anchor="w", pady=(4, 8))
+
+        self.progress_bar = ctk.CTkProgressBar(
+            body, height=12, corner_radius=6,
+            fg_color="#E2E8F0", progress_color="#4F46E5", mode="determinate"
+        )
+        self.progress_bar.pack(fill="x", pady=(0, 10))
+        self.progress_bar.set(0)
+
+        self.lbl_stats = ctk.CTkLabel(
+            body, text="0.0 MB / 0.0 MB (0%)",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color="#0F172A"
+        )
+        self.lbl_stats.pack(anchor="w")
+
+        self.lbl_msg_final = ctk.CTkLabel(
+            body, text="Por favor, aguarde. O aplicativo será reiniciado automaticamente após o download.",
+            font=ctk.CTkFont(family="Segoe UI", size=10), text_color="#64748B"
+        )
+        self.lbl_msg_final.pack(anchor="w", pady=(10, 0))
+
+    def _iniciar_download(self):
+        def _worker():
+            url = self.info.get("url_download")
+            atualizador = AtualizadorOTA(versao_atual=VERSAO_ATUAL)
+
+            def _callback(baixados, total):
+                if total > 0:
+                    pct = baixados / total
+                    pct_int = int(pct * 100)
+                    mb_baixados = baixados / 1024 / 1024
+                    mb_total = total / 1024 / 1024
+                    self.after(0, lambda: self._atualizar_progresso(pct, mb_baixados, mb_total, pct_int))
+
+            sucesso, msg, temp_exe = atualizador.baixar_atualizacao(url, callback_progresso=_callback)
+
+            if sucesso and temp_exe:
+                self.after(0, lambda: self._finalizar_instalacao(temp_exe))
+            else:
+                self.after(0, lambda: self._falha_download(msg))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _atualizar_progresso(self, pct, mb_baixados, mb_total, pct_int):
+        try:
+            self.progress_bar.set(pct)
+            self.lbl_stats.configure(text=f"{mb_baixados:.1f} MB de {mb_total:.1f} MB ({pct_int}%)")
+            self.lbl_detalhe.configure(text="Transferindo nova versão a partir do GitHub Releases...")
+        except Exception:
+            pass
+
+    def _finalizar_instalacao(self, temp_exe: Path):
+        self.lbl_detalhe.configure(text="✔ Download concluído com sucesso!")
+        self.lbl_stats.configure(text="100% Concluído")
+        self.progress_bar.set(1.0)
+        self.progress_bar.configure(progress_color="#059669")
+        self.lbl_msg_final.configure(
+            text="Aplicando nova versão e reiniciando o NfSplit... Aguarde.",
+            text_color="#059669"
+        )
+        self.update()
+
+        def _aplicar():
+            time.sleep(1)
+            sucesso, msg = AtualizadorOTA.aplicar_atualizacao_ota(temp_exe)
+            if not sucesso:
+                self.after(0, lambda: mostrar_erro(self, "Falha na Atualização", msg))
+            else:
+                try:
+                    self.parent.destroy()
+                except Exception:
+                    pass
+                sys.exit(0)
+
+        threading.Thread(target=_aplicar, daemon=True).start()
+
+    def _falha_download(self, erro_msg: str):
+        mostrar_erro(
+            self,
+            "Erro no Download",
+            f"Não foi possível concluir o download da nova versão:\n{erro_msg}\n\nPor favor, tente novamente mais tarde."
+        )
+        self.destroy()
+
+
+# ----------------------------------------------------------------------------
 # Janela Modal: Sobre, Versões, Changelog e Atualizador OTA
 # ----------------------------------------------------------------------------
 
@@ -466,39 +714,33 @@ class JanelaSobre(ctk.CTkToplevel):
         top_ota.pack(fill="x", padx=16, pady=(10, 6))
 
         lbl_ota_t = ctk.CTkLabel(
-            top_ota, text="🔄 Atualizações de Software (OTA)",
+            top_ota, text="🔄 Atualizações de Software (GitHub Releases)",
             font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
             text_color="#0F172A"
         )
         lbl_ota_t.pack(side="left")
 
-        status_txt = "⚪ Inativo (Aguardando servidor)"
-        cor_status = "#64748B"
-        if self.cfg.get("url_servidor_atualizacao"):
-            status_txt = "🟢 Configurado"
-            cor_status = "#059669"
-
         lbl_ota_st = ctk.CTkLabel(
-            top_ota, text=status_txt,
+            top_ota, text="🟢 Conectado ao GitHub",
             font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
-            text_color=cor_status
+            text_color="#059669"
         )
         lbl_ota_st.pack(side="right")
 
         lbl_ota_desc = ctk.CTkLabel(
             card_ota,
-            text="O NfSplit possui arquitetura OTA integrada para atualização automática direta. Atualmente está inativo aguardando a configuração do seu servidor de distribuição.",
+            text="O NfSplit busca novas versões diretamente no GitHub Releases oficial. Ele realiza verificação semanal automática e você pode buscar manualmente a qualquer momento. Ao confirmar, o download ocorre em segundo plano com substituição automática do executável, preservando todas as suas configurações.",
             font=ctk.CTkFont(family="Segoe UI", size=11),
             text_color="#64748B", justify="left", wraplength=480
         )
         lbl_ota_desc.pack(anchor="w", padx=16, pady=(0, 10))
 
-        btn_verificar = ctk.CTkButton(
+        self.btn_verificar = ctk.CTkButton(
             card_ota, text="🔍  Verificar Atualizações Agora", command=self._verificar_atualizacoes,
-            width=210, height=34, corner_radius=10, fg_color="#E2E8F0", hover_color="#CBD5E1",
+            width=220, height=34, corner_radius=10, fg_color="#E2E8F0", hover_color="#CBD5E1",
             text_color="#1E293B", font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")
         )
-        btn_verificar.pack(anchor="w", padx=16, pady=(0, 10))
+        self.btn_verificar.pack(anchor="w", padx=16, pady=(0, 10))
 
         footer = ctk.CTkFrame(body, fg_color="transparent")
         footer.pack(fill="x", side="bottom")
@@ -511,20 +753,37 @@ class JanelaSobre(ctk.CTkToplevel):
         btn_fechar.pack(side="right")
 
     def _verificar_atualizacoes(self):
-        url = self.cfg.get("url_servidor_atualizacao", "").strip()
-        atualizador = AtualizadorOTA(versao_atual=VERSAO_ATUAL, url_servidor=url)
-        sucesso, msg, dados = atualizador.verificar_atualizacao()
+        self.btn_verificar.configure(state="disabled", text="⏳  Verificando no GitHub...")
 
-        if not url:
-            mostrar_aviso(
-                self,
-                "Sistema OTA Pronto",
-                "O módulo de atualização OTA está integrado e pronto para operar.\n\nPara ativá-lo, defina a URL do seu servidor de atualização no arquivo de configurações ou no menu de opções."
-            )
-        elif sucesso:
-            mostrar_sucesso(self, "Nova Versão", msg)
-        else:
-            mostrar_aviso(self, "Verificação OTA", msg)
+        def _worker():
+            url_custom = self.cfg.get("url_servidor_atualizacao", "").strip()
+            repo = self.cfg.get("repositorio_github", REPOSITORIO_PADRAO)
+            atualizador = AtualizadorOTA(versao_atual=VERSAO_ATUAL, repo=repo, url_custom=url_custom)
+            sucesso, msg, dados = atualizador.verificar_atualizacao()
+
+            self.cfg["ultima_verificacao_atualizacao"] = datetime.now().isoformat()
+            salvar_config(self.cfg)
+
+            def _concluir():
+                try:
+                    self.btn_verificar.configure(state="normal", text="🔍  Verificar Atualizações Agora")
+                except Exception:
+                    pass
+
+                if sucesso and dados:
+                    DialogoNovaVersao(self.parent, dados)
+                elif dados and not sucesso and ("mais recente" in msg or "já está" in msg):
+                    mostrar_sucesso(
+                        self,
+                        "Sistema Atualizado!",
+                        f"Parabéns! Você já está utilizando a versão mais recente do NfSplit (v{VERSAO_ATUAL})."
+                    )
+                else:
+                    mostrar_aviso(self, "Verificação OTA", msg)
+
+            self.after(0, _concluir)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
 
 # ----------------------------------------------------------------------------
@@ -641,25 +900,52 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         )
         btn_procurar.pack(side="left")
 
-        # Card Servidor OTA
+        # Card Servidor OTA e GitHub
         card_ota = ctk.CTkFrame(body, fg_color="#FFFFFF", corner_radius=14, border_width=1, border_color="#E2E8F0")
         card_ota.pack(fill="x", pady=(0, 16), padx=2, ipady=6)
 
         lbl_ota = ctk.CTkLabel(
-            card_ota, text="Servidor de Atualizações OTA (Opcional)",
+            card_ota, text="Atualizações de Software (GitHub Releases & OTA)",
             font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
             text_color="#0F172A"
         )
         lbl_ota.pack(anchor="w", padx=16, pady=(8, 4))
 
+        self.var_auto_update = ctk.BooleanVar(value=self.cfg.get("verificar_atualizacoes_auto", True))
+        chk_auto = ctk.CTkCheckBox(
+            card_ota, text="Verificar novas versões automaticamente toda semana",
+            variable=self.var_auto_update, corner_radius=6, border_color="#CBD5E1",
+            fg_color="#4F46E5", hover_color="#4338CA",
+            font=ctk.CTkFont(family="Segoe UI", size=11), text_color="#1E293B"
+        )
+        chk_auto.pack(anchor="w", padx=16, pady=(2, 6))
+
+        row_repo = ctk.CTkFrame(card_ota, fg_color="transparent")
+        row_repo.pack(fill="x", padx=16, pady=(0, 6))
+
+        lbl_repo = ctk.CTkLabel(
+            row_repo, text="Repositório GitHub:", width=130, anchor="w",
+            font=ctk.CTkFont(family="Segoe UI", size=11), text_color="#475569"
+        )
+        lbl_repo.pack(side="left")
+
+        self.var_repo = ctk.StringVar(value=self.cfg.get("repositorio_github", REPOSITORIO_PADRAO))
+        e_repo = ctk.CTkEntry(
+            row_repo, textvariable=self.var_repo, corner_radius=10,
+            border_color="#CBD5E1", fg_color="#F8FAFC", text_color="#0F172A",
+            placeholder_text="LivertonAguiar/NfSplit",
+            font=ctk.CTkFont(family="Segoe UI", size=11)
+        )
+        e_repo.pack(side="left", fill="x", expand=True)
+
         self.var_ota_url = ctk.StringVar(value=self.cfg.get("url_servidor_atualizacao", ""))
         e_ota = ctk.CTkEntry(
             card_ota, textvariable=self.var_ota_url, corner_radius=10,
             border_color="#CBD5E1", fg_color="#F8FAFC", text_color="#0F172A",
-            placeholder_text="https://seuservidor.com/updates/latest.json (deixe vazio se inativo)",
+            placeholder_text="Servidor customizado (opcional, deixe vazio para usar GitHub oficial)",
             font=ctk.CTkFont(family="Segoe UI", size=11)
         )
-        e_ota.pack(fill="x", padx=16, pady=(0, 10))
+        e_ota.pack(fill="x", padx=16, pady=(4, 10))
 
         # Rodapé
         footer = ctk.CTkFrame(body, fg_color="transparent")
@@ -700,6 +986,8 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
             self.var_outros.set(CONFIG_PADRAO["salvar_outros"])
             self.var_limpar_cnpj.set(CONFIG_PADRAO["limpar_cnpj_nome"])
             self.var_pasta.set(CONFIG_PADRAO["pasta_saida_padrao"])
+            self.var_auto_update.set(CONFIG_PADRAO["verificar_atualizacoes_auto"])
+            self.var_repo.set(CONFIG_PADRAO["repositorio_github"])
             self.var_ota_url.set(CONFIG_PADRAO["url_servidor_atualizacao"])
 
     def _salvar(self):
@@ -710,7 +998,9 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
             "pasta_saida_padrao": self.var_pasta.get().strip(),
             "formato_nome_nota": self.cfg.get("formato_nome_nota", "NF {nf} - {nome}"),
             "url_servidor_atualizacao": self.var_ota_url.get().strip(),
-            "verificar_atualizacoes_auto": bool(self.var_ota_url.get().strip()),
+            "verificar_atualizacoes_auto": self.var_auto_update.get(),
+            "repositorio_github": self.var_repo.get().strip() or REPOSITORIO_PADRAO,
+            "ultima_verificacao_atualizacao": self.cfg.get("ultima_verificacao_atualizacao", ""),
         }
         salvar_config(nova_cfg)
 
@@ -718,6 +1008,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self.parent.var_outros.set(nova_cfg["salvar_outros"])
         self.parent.var_limpar_cnpj.set(nova_cfg["limpar_cnpj_nome"])
         self.parent.var_saida.set(nova_cfg["pasta_saida_padrao"])
+        self.parent.cfg = nova_cfg
 
         mostrar_sucesso(self, "Preferências Salvas", "As configurações foram atualizadas e salvas com sucesso!")
         self.destroy()
@@ -751,6 +1042,9 @@ class AppSeparador(ctk.CTk):
                 windnd.hook_dropfiles(self, func=self._on_arquivos_soltos)
             except Exception:
                 pass
+
+        # Checagem semanal automática de atualizações em segundo plano
+        self.after(2500, self._checar_atualizacoes_background)
 
     def _construir_interface(self):
         # --------------------------------------------------------------------
@@ -1140,6 +1434,25 @@ class AppSeparador(ctk.CTk):
 
     def _abrir_sobre(self):
         JanelaSobre(self)
+
+    def _checar_atualizacoes_background(self):
+        """Verifica silenciosamente em segundo plano se existe nova versão no GitHub."""
+        if not deve_verificar_atualizacao(self.cfg, dias_intervalo=7):
+            return
+
+        def _worker():
+            url_custom = self.cfg.get("url_servidor_atualizacao", "").strip()
+            repo = self.cfg.get("repositorio_github", REPOSITORIO_PADRAO)
+            atualizador = AtualizadorOTA(versao_atual=VERSAO_ATUAL, repo=repo, url_custom=url_custom)
+            sucesso, msg, dados = atualizador.verificar_atualizacao()
+
+            self.cfg["ultima_verificacao_atualizacao"] = datetime.now().isoformat()
+            salvar_config(self.cfg)
+
+            if sucesso and dados:
+                self.after(0, lambda: DialogoNovaVersao(self, dados))
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _selecionar_pdf(self):
         caminho = filedialog.askopenfilename(

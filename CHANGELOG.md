@@ -37,5 +37,9 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
   * Limpeza automática de prefixos de CNPJ da Razão Social nos nomes dos arquivos gerados.
 * **Relatório em Planilha Excel/CSV**:
   * Geração automática de `relatorio.csv` com codificação UTF-8 com BOM, delimitado por ponto e vírgula, contendo valores, vencimentos, forma de pagamento e chave de acesso.
-* **Arquitetura de Atualização OTA (Over-The-Air)**:
-  * Módulo [updater.py] integrado para futuras atualizações automáticas via servidor ou repositório, com verificação de SHA-256 e substituição atômica de executável.
+* **Sistema Completo de Atualização de Software (GitHub Releases OTA)**:
+  * Integração direta com a API oficial do GitHub Releases (`LivertonAguiar/NfSplit`).
+  * Verificação automática semanal em segundo plano e busca manual a qualquer momento em "Sobre & OTA".
+  * Caixa de diálogo moderna (`DialogoNovaVersao`) exibindo comparativo de versões, tamanho do arquivo e notas de versão (*Changelog*).
+  * Modal com barra de progresso visual em tempo real (`DialogoProgressoDownload`) exibindo MBs baixados e porcentagem.
+  * Substituição atômica automática do executável (`.exe`), com reinicialização instantânea na nova versão e preservação 100% integral das configurações do usuário (`config.json`).

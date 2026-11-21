@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-updater.py - Módulo de Atualização de Software e Instalação OTA (Over-The-Air) para NfSplit.
-Preparado para conexão com servidor de atualizações (JSON / GitHub Releases / Servidor próprio).
-Por padrão, permanece inativo até que o usuário configure a URL do servidor.
+updater.py - Módulo de Atualização de Software e Instalação OTA para NfSplit.
+Totalmente integrado ao GitHub Releases (LivertonAguiar/NfSplit).
+Suporta verificação automática semanal, busca manual, download com progresso
+e substituição atômica do executável (.exe) preservando configurações.
 """
 
-import hashlib
 import json
 import os
 import subprocess
@@ -13,87 +13,148 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
 VERSAO_ATUAL = "1.0.0"
+REPOSITORIO_PADRAO = "LivertonAguiar/NfSplit"
 
 
 def comparar_versoes(v_atual: str, v_nova: str) -> bool:
     """
     Retorna True se v_nova for estritamente mais recente que v_atual.
-    Suporta formato semântico X.Y.Z.
+    Suporta formato semântico X.Y.Z com ou sem prefixo 'v'.
     """
     try:
-        def parse(v):
-            return [int(x) for x in v.strip().lstrip("v").split(".") if x.isdigit()]
-        return parse(v_nova) > parse(v_atual)
+        def parse(v: str):
+            v_limpo = v.strip().lower().lstrip("v")
+            partes = []
+            for item in v_limpo.split("."):
+                num = "".join(ch for ch in item if ch.isdigit())
+                if num:
+                    partes.append(int(num))
+            return partes
+
+        p_nova = parse(v_nova)
+        p_atual = parse(v_atual)
+        if not p_nova:
+            return False
+        return p_nova > p_atual
     except Exception:
         return False
 
 
-class AtualizadorOTA:
-    """Gerenciador de verificação, download e aplicação de atualizações OTA."""
+def deve_verificar_atualizacao(cfg: dict, dias_intervalo: int = 7) -> bool:
+    """
+    Retorna True se a checagem automática estiver ativa e se passaram
+    pelo menos 'dias_intervalo' dias desde a última verificação.
+    """
+    if not cfg.get("verificar_atualizacoes_auto", True):
+        return False
 
-    def __init__(self, versao_atual: str = VERSAO_ATUAL, url_servidor: str = ""):
+    ultima_str = cfg.get("ultima_verificacao_atualizacao", "").strip()
+    if not ultima_str:
+        return True
+
+    try:
+        dt_ultima = datetime.fromisoformat(ultima_str)
+        return (datetime.now() - dt_ultima) >= timedelta(days=dias_intervalo)
+    except Exception:
+        return True
+
+
+class AtualizadorOTA:
+    """Gerenciador de verificação, download e aplicação de atualizações OTA via GitHub Releases."""
+
+    def __init__(self, versao_atual: str = VERSAO_ATUAL, repo: str = REPOSITORIO_PADRAO, url_custom: str = ""):
         self.versao_atual = versao_atual
-        self.url_servidor = url_servidor.strip()
+        self.repo = repo.strip() or REPOSITORIO_PADRAO
+        if url_custom.strip():
+            self.url_api = url_custom.strip()
+        else:
+            self.url_api = f"https://api.github.com/repos/{self.repo}/releases/latest"
 
     def verificar_atualizacao(self) -> Tuple[bool, str, Optional[dict]]:
         """
-        Verifica se há atualizações disponíveis no servidor configurado.
-        Retorna (sucesso, mensagem, dados_atualizacao).
+        Consulta o GitHub Releases para verificar se há nova versão disponível.
+        Retorna: (tem_nova_versao, mensagem, dados_release)
         """
-        if not self.url_servidor:
-            return (
-                False,
-                "O serviço de atualização OTA está inativo porque nenhuma URL de servidor foi configurada.",
-                None
-            )
-
         try:
             req = urllib.request.Request(
-                self.url_servidor,
-                headers={"User-Agent": f"NfSplit-Updater/{self.versao_atual}"}
+                self.url_api,
+                headers={
+                    "User-Agent": f"NfSplit-Updater/{self.versao_atual}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
             )
-            with urllib.request.urlopen(req, timeout=8) as response:
-                if response.status != 200:
-                    return False, f"Servidor retornou status HTTP {response.status}.", None
-                dados = json.loads(response.read().decode("utf-8"))
 
-            versao_remota = dados.get("versao", "")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status != 200:
+                    return False, f"Servidor retornou status HTTP {resp.status}.", None
+                dados = json.loads(resp.read().decode("utf-8"))
+
+            tag_remota = dados.get("tag_name", "").strip()
+            versao_remota = tag_remota.lstrip("v").strip()
             if not versao_remota:
-                return False, "Resposta do servidor não contém o campo 'versao'.", None
+                return False, "Nenhuma versão localizada no GitHub Releases.", None
+
+            # Localiza o executável nos anexos da release
+            asset_exe = None
+            for asset in dados.get("assets", []):
+                nome = asset.get("name", "").lower()
+                if nome == "nfsplit.exe" or nome.endswith(".exe"):
+                    asset_exe = asset
+                    break
+
+            info_versao = {
+                "tag": tag_remota,
+                "versao": versao_remota,
+                "titulo": dados.get("name") or f"NfSplit {tag_remota}",
+                "changelog": dados.get("body", "Melhorias gerais e correções no NfSplit."),
+                "html_url": dados.get("html_url", ""),
+                "publicado_em": dados.get("published_at", ""),
+                "tamanho_bytes": asset_exe.get("size", 0) if asset_exe else 0,
+                "url_download": asset_exe.get("browser_download_url", "") if asset_exe else "",
+                "asset_nome": asset_exe.get("name", "NfSplit.exe") if asset_exe else "",
+            }
+
+            if not info_versao["url_download"]:
+                return (
+                    False,
+                    f"A versão {tag_remota} foi encontrada, mas não possui o executável 'NfSplit.exe' anexado.",
+                    info_versao
+                )
 
             if comparar_versoes(self.versao_atual, versao_remota):
                 return (
                     True,
-                    f"Nova versão {versao_remota} disponível!",
-                    dados
+                    f"Nova versão {tag_remota} disponível para download!",
+                    info_versao
                 )
             else:
                 return (
                     False,
                     f"Você já está utilizando a versão mais recente ({self.versao_atual}).",
-                    dados
+                    info_versao
                 )
 
         except urllib.error.URLError as e:
-            return False, f"Não foi possível conectar ao servidor de atualização: {e.reason}", None
+            razao = getattr(e, "reason", str(e))
+            return False, f"Não foi possível conectar ao GitHub: {razao}", None
         except json.JSONDecodeError:
-            return False, "O servidor retornou um formato inválido (não é JSON).", None
+            return False, "Resposta inválida retornada pelo GitHub (não é JSON).", None
         except Exception as e:
             return False, f"Erro inesperado ao verificar atualizações: {str(e)}", None
 
     def baixar_atualizacao(
         self,
         url_download: str,
-        sha256_esperado: str = "",
         callback_progresso: Optional[Callable[[int, int], None]] = None
     ) -> Tuple[bool, str, Optional[Path]]:
         """
-        Baixa o arquivo binário da nova versão para uma pasta temporária.
-        Retorna (sucesso, mensagem, caminho_arquivo_baixado).
+        Baixa o arquivo binário da nova versão para um arquivo temporário.
+        Chama callback_progresso(bytes_baixados, total_bytes) a cada bloco.
         """
         try:
             fd, temp_path_str = tempfile.mkstemp(prefix="NfSplit_update_", suffix=".exe")
@@ -105,12 +166,10 @@ class AtualizadorOTA:
                 headers={"User-Agent": f"NfSplit-Updater/{self.versao_atual}"}
             )
 
-            hasher = hashlib.sha256() if sha256_esperado else None
-
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=60) as resp:
                 total_bytes = int(resp.headers.get("Content-Length", 0))
                 bytes_baixados = 0
-                bloco_tamanho = 64 * 1024
+                bloco_tamanho = 128 * 1024  # 128 KB por bloco
 
                 with open(temp_path, "wb") as f_out:
                     while True:
@@ -119,71 +178,72 @@ class AtualizadorOTA:
                             break
                         f_out.write(bloco)
                         bytes_baixados += len(bloco)
-                        if hasher:
-                            hasher.update(bloco)
                         if callback_progresso and total_bytes > 0:
                             callback_progresso(bytes_baixados, total_bytes)
-
-            # Validação opcional de integridade SHA-256
-            if sha256_esperado:
-                sha_calculado = hasher.hexdigest().lower()
-                if sha_calculado != sha256_esperado.strip().lower():
-                    temp_path.unlink(missing_ok=True)
-                    return False, "Falha de integridade: SHA-256 do arquivo baixado não confere.", None
 
             return True, "Download concluído com sucesso!", temp_path
 
         except Exception as e:
-            return False, f"Erro ao realizar download da atualização: {str(e)}", None
+            return False, f"Erro durante o download da atualização: {str(e)}", None
 
     @staticmethod
-    def aplicar_atualizacao_ota(novo_exe: Path) -> Tuple[bool, str]:
+    def aplicar_atualizacao_ota(novo_exe: Path, exe_alvo: Optional[Path] = None) -> Tuple[bool, str]:
         """
-        Gera e executa script em lote para substituir o executável atual e reiniciar.
+        Cria e dispara script em lote (.bat) desanexado que:
+        1. Aguarda o término do processo atual (PID);
+        2. Substitui o executável atual pelo novo arquivo baixado;
+        3. Inicia o novo executável preservando configurações e diretório;
+        4. Exclui o script temporário.
         """
         try:
-            exe_atual = Path(sys.executable).resolve()
-            if not getattr(sys, "frozen", False):
-                return False, "A atualização OTA automática só pode ser aplicada a partir do arquivo compilado (.exe)."
+            if exe_alvo is None:
+                if getattr(sys, "frozen", False):
+                    exe_alvo = Path(sys.executable).resolve()
+                else:
+                    desktop_exe = Path.home() / "Desktop" / "NfSplit.exe"
+                    if desktop_exe.exists():
+                        exe_alvo = desktop_exe
+                    else:
+                        exe_alvo = Path(__file__).parent.resolve() / "NfSplit.exe"
 
             pid_atual = os.getpid()
             pasta_temp = Path(tempfile.gettempdir())
-            bat_script = pasta_temp / f"ota_apply_{pid_atual}.bat"
+            bat_script = pasta_temp / f"nfsplit_apply_{pid_atual}.bat"
 
             script_content = f"""@echo off
 chcp 65001 > nul
-echo Aguardando encerramento do processo antigo (PID: {pid_atual})...
-timeout /t 2 /nobreak > nul
 
 :loop_espera
 tasklist /fi "PID eq {pid_atual}" 2>nul | find "{pid_atual}" >nul
 if %errorlevel% equ 0 (
-    timeout /t 1 /nobreak > nul
+    ping 127.0.0.1 -n 2 > nul
     goto loop_espera
 )
 
-echo Substituindo executavel por nova versao...
-copy /y "{str(novo_exe)}" "{str(exe_atual)}" > nul
+rem Substituicao atomica do executavel
+move /y "{str(novo_exe)}" "{str(exe_alvo)}" > nul
 if %errorlevel% neq 0 (
-    echo Erro ao copiar o novo arquivo.
-    exit /b 1
+    copy /y "{str(novo_exe)}" "{str(exe_alvo)}" > nul
+    del /f /q "{str(novo_exe)}" > nul
 )
 
-del /f /q "{str(novo_exe)}" > nul
+rem Reinicia o aplicativo atualizado
+start "" "{str(exe_alvo)}"
 
-echo Reiniciando o NfSplit atualizado...
-start "" "{str(exe_atual)}"
-
-del /f /q "%~f0" > nul
+rem Limpeza do arquivo de script
+(goto) 2>nul & del "%~f0"
 exit
 """
             with open(bat_script, "w", encoding="utf-8") as f:
                 f.write(script_content)
 
-            # Dispara o instalador OTA em segundo plano
-            subprocess.Popen(["cmd.exe", "/c", str(bat_script)], shell=True)
-            # Encerra o processo atual para liberar o arquivo para substituição
-            sys.exit(0)
+            # Inicia o processo em lote totalmente independente e desanexado
+            subprocess.Popen(
+                ["cmd.exe", "/c", str(bat_script)],
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                close_fds=True
+            )
+            return True, "Atualização engatilhada com sucesso."
 
         except Exception as e:
-            return False, f"Falha ao iniciar processo de instalação OTA: {str(e)}"
+            return False, f"Falha ao agendar instalação da atualização: {str(e)}"
