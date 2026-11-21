@@ -337,6 +337,12 @@ class DialogoPrimeiraPasta(ctk.CTkToplevel):
             font=ctk.CTkFont(family="Segoe UI", size=11)
         )
         self.entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self.entry.bind("<Button-1>", lambda e: self._procurar())
+        if hasattr(self.entry, "_entry"):
+            self.entry._entry.configure(cursor="hand2")
+            self.entry._entry.bind("<Button-1>", lambda e: self._procurar())
+        if hasattr(self.entry, "_canvas"):
+            self.entry._canvas.configure(cursor="hand2")
 
         btn_proc = ctk.CTkButton(
             row, text="Escolher...", command=self._procurar,
@@ -616,10 +622,16 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         e_pasta = ctk.CTkEntry(
             row_pasta, textvariable=self.var_pasta, corner_radius=10,
             border_color="#CBD5E1", fg_color="#F8FAFC", text_color="#0F172A",
-            placeholder_text="Nenhuma pasta definida (será solicitada na 1ª execução)",
+            placeholder_text="Clique aqui ou em Procurar para definir a pasta...",
             font=ctk.CTkFont(family="Segoe UI", size=11)
         )
         e_pasta.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        e_pasta.bind("<Button-1>", lambda e: self._procurar_pasta())
+        if hasattr(e_pasta, "_entry"):
+            e_pasta._entry.configure(cursor="hand2")
+            e_pasta._entry.bind("<Button-1>", lambda e: self._procurar_pasta())
+        if hasattr(e_pasta, "_canvas"):
+            e_pasta._canvas.configure(cursor="hand2")
 
         btn_procurar = ctk.CTkButton(
             row_pasta, text="Procurar...", command=self._procurar_pasta,
@@ -860,10 +872,16 @@ class AppSeparador(ctk.CTk):
         self.entry_entrada = ctk.CTkEntry(
             row_in, textvariable=self.var_entrada, corner_radius=10,
             border_color="#CBD5E1", fg_color="#F8FAFC", text_color="#0F172A",
-            placeholder_text="Arraste o PDF acima ou clique em Selecionar PDF...",
+            placeholder_text="Clique aqui ou arraste o PDF para carregar...",
             font=ctk.CTkFont(family="Segoe UI", size=12)
         )
         self.entry_entrada.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.entry_entrada.bind("<Button-1>", lambda e: self._selecionar_pdf())
+        if hasattr(self.entry_entrada, "_entry"):
+            self.entry_entrada._entry.configure(cursor="hand2")
+            self.entry_entrada._entry.bind("<Button-1>", lambda e: self._selecionar_pdf())
+        if hasattr(self.entry_entrada, "_canvas"):
+            self.entry_entrada._canvas.configure(cursor="hand2")
 
         btn_pdf = ctk.CTkButton(
             row_in, text="📂 Selecionar PDF", command=self._selecionar_pdf,
@@ -896,10 +914,16 @@ class AppSeparador(ctk.CTk):
         self.entry_saida = ctk.CTkEntry(
             row_out, textvariable=self.var_saida, corner_radius=10,
             border_color="#CBD5E1", fg_color="#F8FAFC", text_color="#0F172A",
-            placeholder_text="Será solicitada na primeira execução ou clique em Alterar...",
+            placeholder_text="Clique aqui ou no botão para escolher a pasta...",
             font=ctk.CTkFont(family="Segoe UI", size=12)
         )
         self.entry_saida.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.entry_saida.bind("<Button-1>", lambda e: self._selecionar_pasta_saida())
+        if hasattr(self.entry_saida, "_entry"):
+            self.entry_saida._entry.configure(cursor="hand2")
+            self.entry_saida._entry.bind("<Button-1>", lambda e: self._selecionar_pasta_saida())
+        if hasattr(self.entry_saida, "_canvas"):
+            self.entry_saida._canvas.configure(cursor="hand2")
 
         btn_dest = ctk.CTkButton(
             row_out, text="Alterar Pasta", command=self._selecionar_pasta_saida,
