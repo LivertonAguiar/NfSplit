@@ -15,6 +15,11 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
   * Execução 100% offline, local e segura, sem necessidade de servidores locais ou portas abertas.
 * **Interface Moderna e Suavizada com CustomTkinter**:
   * Design visual moderno com cantos arredondados verdadeiros em cartões (`corner_radius=16`), botões com animações suaves e campos de texto arredondados.
+  * Tabela de resultados totalmente modernizada com `CTkScrollableFrame`, eliminando barras de rolagem legadas e exibindo scrollbars arredondadas e suaves.
+  * Estado vazio ilustrado (*Empty State*) amigável e explicativo (`📄✨`) quando nenhum documento foi processado.
+  * Badges coloridos por tipo de documento (`[DANFE]`, `[BOLETO]`, `[MAPA]`, `[ACERTO]`), efeito hover e botão de ação direta para abrir cada PDF gerado.
+  * Suporte nativo a Arraste e Solte (*Drag & Drop*) de PDFs e pastas diretamente sobre a aplicação com feedback visual interativo.
+  * Interatividade aprimorada com abertura do explorador ao clicar diretamente nas caixas de texto.
   * Ícone personalizado e suporte a temas visuais de alto contraste e ergonomia.
 * **Caixas de Diálogo e Confirmação 100% Nativas do Sistema**:
   * Substituição de todas as caixas de mensagem padrão do Windows (Win32) por modais gráficos integrados ao visual do aplicativo (Sucesso, Atenção, Erro e Confirmações).
