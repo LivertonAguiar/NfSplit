@@ -5,6 +5,20 @@
 
 ---
 
+### ⬇️ Download Direto do Executável (.exe)
+
+Clique no botão abaixo para baixar a versão oficial pronta para uso:
+
+[![Baixar NfSplit v1.1.0 para Windows](https://img.shields.io/badge/⬇️_BAIXAR_NFSPLIT_v1.1.0-EXECUTÁVEL_.EXE_(37_MB)-059669?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/LivertonAguiar/NfSplit/releases/download/v1.1.0/NfSplit.exe)
+
+> 💡 **Não precisa instalar nada!** Basta baixar o arquivo **`NfSplit.exe`** e executá-lo diretamente no Windows.
+> 
+> 🔗 **Links Rápidos:**
+> * 📥 **[Download Direto do Executável (NfSplit.exe)](https://github.com/LivertonAguiar/NfSplit/releases/download/v1.1.0/NfSplit.exe)**
+> * 📦 **[Ver Todas as Releases no GitHub](https://github.com/LivertonAguiar/NfSplit/releases)**
+
+---
+
 ## 🚀 Sobre o Projeto
 
 O **NfSplit** é uma solução profissional para transportadoras, departamentos fiscais, escritórios contábeis e setores de faturamento que recebem arquivos PDF únicos contendo dezenas de páginas mescladas (DANFEs, Boletos de cobrança, Mapas de Entrega e Acertos de Carga).
